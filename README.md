@@ -1,44 +1,43 @@
 # MyFitnessPal MCP Server
 
-Runs the [AdamWalt/myfitnesspal-mcp-python](https://github.com/AdamWalt/myfitnesspal-mcp-python) MCP server behind a Cloudflare Tunnel, making it accessible remotely over SSE/HTTP.
+Runs the [AdamWalt/myfitnesspal-mcp-python](https://github.com/AdamWalt/myfitnesspal-mcp-python) MCP server behind an ngrok tunnel, making it accessible remotely over SSE/HTTP.
 
 ## Architecture
 
 ```
-Cloudflare Edge → cloudflared → supergateway (HTTP:8000) → python -m mfp_mcp.server (stdio)
+ngrok edge → supergateway (HTTP:8000) → python -m mfp_mcp.server (stdio)
 ```
 
-[supergateway](https://github.com/supercorp-ai/supergateway) bridges the stdio-only MCP server to an HTTP/SSE transport that cloudflared can tunnel.
+[supergateway](https://github.com/supercorp-ai/supergateway) bridges the stdio-only MCP server to an HTTP/SSE transport that ngrok tunnels.
 
 ## Prerequisites
 
 - Docker and Docker Compose
 - A MyFitnessPal account
-- A [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) with a token
+- A free [ngrok](https://ngrok.com) account with an authtoken and a static domain
 
 ## Setup
 
-### 1. Configure environment
+### 1. Get ngrok credentials
+
+1. Sign up at [ngrok.com](https://ngrok.com) (free)
+2. Copy your authtoken from the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken)
+3. Claim a free static domain at **Cloud Edge → Domains → New Domain**
+
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
+Edit `.env`:
 
 | Variable | Description |
 |---|---|
 | `MFP_USERNAME` | MyFitnessPal email address |
 | `MFP_PASSWORD` | MyFitnessPal password |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Token from the Cloudflare dashboard |
-
-### 2. Configure the Cloudflare Tunnel
-
-In the [Cloudflare Zero Trust dashboard](https://one.dash.cloudflare.com/), set your tunnel's public hostname **Service URL** to:
-
-```
-http://mfp-mcp:8000
-```
+| `NGROK_AUTHTOKEN` | Token from the ngrok dashboard |
+| `NGROK_DOMAIN` | Your static domain, e.g. `your-name.ngrok-free.app` |
 
 ### 3. Build and run
 
@@ -53,7 +52,25 @@ Check logs:
 docker compose logs -f
 ```
 
-The `cloudflared` logs will show `Connection established` once the tunnel is live. The MCP server is then reachable at your configured public hostname.
+The MCP server is reachable at `https://<your-domain>/sse` once ngrok connects.
+
+## Connecting to Claude
+
+**Claude Code:**
+```bash
+claude mcp add myfitnesspal --transport sse https://your-domain.ngrok-free.app/sse
+```
+
+**Claude Desktop (`claude_desktop_config.json`):**
+```json
+{
+  "mcpServers": {
+    "myfitnesspal": {
+      "url": "https://your-domain.ngrok-free.app/sse"
+    }
+  }
+}
+```
 
 ## Stopping
 

@@ -6,11 +6,11 @@ services:
       - MFP_PASSWORD=${MFP_PASSWORD}
     restart: unless-stopped
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http mfp-mcp:8000 --domain=${NGROK_DOMAIN}
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     depends_on:
       - mfp-mcp
     restart: unless-stopped
