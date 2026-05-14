@@ -1,0 +1,16 @@
+services:
+  mfp-mcp:
+    build: .
+    environment:
+      - MFP_USERNAME=${MFP_USERNAME}
+      - MFP_PASSWORD=${MFP_PASSWORD}
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - mfp-mcp
+    restart: unless-stopped
