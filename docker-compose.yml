@@ -8,7 +8,7 @@ services:
 
   ngrok:
     image: ngrok/ngrok:latest
-    command: http mfp-mcp:8000 --domain=${NGROK_DOMAIN}
+    command: http mfp-mcp:8000 --domain=${NGROK_DOMAIN} --basic-auth=${NGROK_BASIC_AUTH}
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     depends_on:

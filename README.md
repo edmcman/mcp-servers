@@ -38,6 +38,7 @@ Edit `.env`:
 | `MFP_PASSWORD` | MyFitnessPal password |
 | `NGROK_AUTHTOKEN` | Token from the ngrok dashboard |
 | `NGROK_DOMAIN` | Your static domain, e.g. `your-name.ngrok-free.app` |
+| `NGROK_BASIC_AUTH` | Credentials to protect the endpoint, e.g. `username:somepassword` |
 
 ### 3. Build and run
 
@@ -58,7 +59,7 @@ The MCP server is reachable at `https://<your-domain>/sse` once ngrok connects.
 
 **Claude Code:**
 ```bash
-claude mcp add myfitnesspal --transport sse https://your-domain.ngrok-free.app/sse
+claude mcp add myfitnesspal --transport sse https://username:somepassword@your-domain.ngrok-free.app/sse
 ```
 
 **Claude Desktop (`claude_desktop_config.json`):**
@@ -66,7 +67,7 @@ claude mcp add myfitnesspal --transport sse https://your-domain.ngrok-free.app/s
 {
   "mcpServers": {
     "myfitnesspal": {
-      "url": "https://your-domain.ngrok-free.app/sse"
+      "url": "https://username:somepassword@your-domain.ngrok-free.app/sse"
     }
   }
 }
