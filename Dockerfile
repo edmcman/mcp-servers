@@ -11,6 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+COPY python-myfitnesspal /python-myfitnesspal
+RUN pip install -e /python-myfitnesspal
+
 COPY mfp-mcp /app
 WORKDIR /app
 RUN pip install -e .
