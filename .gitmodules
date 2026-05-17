@@ -1,0 +1,3 @@
+[submodule "mfp-mcp"]
+	path = mfp-mcp
+	url = https://github.com/edmcman/myfitnesspal-mcp-python.git

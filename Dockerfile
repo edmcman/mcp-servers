@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/AdamWalt/myfitnesspal-mcp-python /app
+COPY mfp-mcp /app
 WORKDIR /app
 RUN pip install -e .
 
