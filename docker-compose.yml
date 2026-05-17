@@ -4,6 +4,8 @@ services:
     environment:
       - MFP_USERNAME=${MFP_USERNAME}
       - MFP_PASSWORD=${MFP_PASSWORD}
+    volumes:
+      - ./mfp-cookies:/home/mcp/.mfp_mcp
     restart: unless-stopped
 
   nginx:
