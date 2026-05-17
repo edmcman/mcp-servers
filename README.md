@@ -1,14 +1,23 @@
-# MyFitnessPal MCP Server
+# MCP Servers
 
-Runs the [AdamWalt/myfitnesspal-mcp-python](https://github.com/AdamWalt/myfitnesspal-mcp-python) MCP server behind an ngrok tunnel, making it accessible remotely over SSE/HTTP.
+Hosts one or more MCP servers behind a single ngrok tunnel, accessible remotely over HTTP.
 
 ## Architecture
 
 ```
-ngrok edge → supergateway (HTTP:8000) → python -m mfp_mcp.server (stdio)
+ngrok (static domain)
+  └─► nginx :80  (path-based routing)
+        └─► <server>-mcp:<port>  (supergateway, streamableHttp)
+              └─► MCP server process (stdio)
 ```
 
-[supergateway](https://github.com/supercorp-ai/supergateway) bridges the stdio-only MCP server to an HTTP/SSE transport that ngrok tunnels.
+[supergateway](https://github.com/supercorp-ai/supergateway) bridges each stdio MCP server to HTTP. nginx routes different URL path prefixes to different backends, so all servers share one ngrok domain.
+
+## Servers
+
+| Path prefix | Server |
+|---|---|
+| `/mfp` | [myfitnesspal-mcp-python](https://github.com/AdamWalt/myfitnesspal-mcp-python) |
 
 ## Prerequisites
 
@@ -53,13 +62,13 @@ Check logs:
 docker compose logs -f
 ```
 
-The MCP server is reachable at `https://<your-domain>/sse` once ngrok connects.
+The MFP server is reachable at `https://<your-domain>/mfp/mcp` once ngrok connects.
 
 ## Connecting to Claude
 
 **Claude Code:**
 ```bash
-claude mcp add myfitnesspal --transport sse https://username:somepassword@your-domain.ngrok-free.app/sse
+claude mcp add myfitnesspal --transport http https://username:somepassword@your-domain.ngrok-free.app/mfp/mcp
 ```
 
 **Claude Desktop (`claude_desktop_config.json`):**
@@ -67,7 +76,7 @@ claude mcp add myfitnesspal --transport sse https://username:somepassword@your-d
 {
   "mcpServers": {
     "myfitnesspal": {
-      "url": "https://username:somepassword@your-domain.ngrok-free.app/sse"
+      "url": "https://username:somepassword@your-domain.ngrok-free.app/mfp/mcp"
     }
   }
 }

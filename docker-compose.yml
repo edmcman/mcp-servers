@@ -6,11 +6,19 @@ services:
       - MFP_PASSWORD=${MFP_PASSWORD}
     restart: unless-stopped
 
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - mfp-mcp
+    restart: unless-stopped
+
   ngrok:
     image: ngrok/ngrok:latest
-    command: http mfp-mcp:8000 --domain=${NGROK_DOMAIN} --basic-auth=${NGROK_BASIC_AUTH}
+    command: http nginx:80 --url=${NGROK_DOMAIN} --basic-auth=${NGROK_BASIC_AUTH}
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     depends_on:
-      - mfp-mcp
+      - nginx
     restart: unless-stopped

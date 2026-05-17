@@ -21,4 +21,4 @@ RUN useradd -m -u 1000 mcp
 USER mcp
 
 EXPOSE 8000
-CMD ["supergateway", "--stdio", "python -m mfp_mcp.server", "--port", "8000", "--host", "0.0.0.0"]
+CMD ["supergateway", "--stdio", "python -m mfp_mcp.server", "--outputTransport", "streamableHttp", "--port", "8000", "--host", "0.0.0.0"]
