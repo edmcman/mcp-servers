@@ -95,10 +95,12 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
 - Returns up to 10 saved meals with `meal_id`, `description`, and `foods` array.
 - Each food in the array has `food_id`, `serving_size`, `servings`, `nutrition`.
 
-**Logging a saved meal (`mfp_log_saved_meal`) — BROKEN:**
-- `get_meals_detailed()` works (returns saved meal groups via `/api/v1/foods/meals` JSON API, e.g. "Giant Turkey Sandwich").
-- `log_saved_meal()` is broken: it scrapes `/food/add_to_diary` for the meal name, but that page lists individual favorite *food items* (e.g. "Applegate - Deli Sliced Oven Roasted Turkey"), not saved meal group names. So the name match always fails.
-- Fix needed: find the correct endpoint or page that lists saved meal groups in a form that can be submitted, or use the meal_id from `get_meals_detailed()` directly.
+**Logging a saved meal (`mfp_log_saved_meal`) — WORKING:**
+- Calls `client.log_saved_meal(meal_name, diary_meal, date)` in the library.
+- Flow: GET `/food/add_to_diary?meal={meal_index}&date=...` to prime Rails session state and extract `authenticity_token`, then call `load_meals()` to paginate saved meal groups, find by name, POST to `/food/add_favorites`.
+- **Critical**: `Origin` header must be `https://www.myfitnesspal.com` (no trailing slash) — trailing slash causes the server to return a full HTML page instead of the AJAX fragment. Fixed by removing trailing slash from `BASE_URL_SECURE`.
+- **Critical**: pagination requires incrementing both `base_index` and `page` together (e.g. `base_index=25, page=2`); sending `page=1` always returns the same first page regardless of `base_index`.
+- The `/food/load_meals` AJAX endpoint returns saved meal groups (not individual food favorites) when properly primed.
 
 **Adding food to diary (`mfp_add_food_to_diary`):**
 - The library method `add_food_to_diary()` POSTs to `/food/add` with `food_entry[food_id]`, `food_entry[weight_id]`, `food_entry[meal_id]`, `food_entry[quantity]`, `food_entry[date]`, `ajax=true`.
@@ -120,7 +122,7 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
    - NextAuth: `__Secure-next-auth.session-token` (used by most read APIs and JSON endpoints)
    - Rails legacy: `_mfp_session`, `remember_me` (required by `/food/remove`, `/food/add_favorites`, `/food/load_meals`)
 2. **Rails endpoints require CSRF tokens** from `<meta name="csrf-token">`. DELETE requests must include `X-CSRF-Token` header; without it they redirect to login.
-3. **Saved-meal pagination** (`/food/load_meals`) requires visiting `/food/add_to_diary?meal={i}&date={date}` first to establish server-side pagination state.
+3. **Saved-meal pagination** (`/food/load_meals`) requires visiting `/food/add_to_diary?meal={i}&date={date}` first to establish server-side pagination state. Pagination requires incrementing both `base_index` and `page` together (not just `base_index`). The `Origin` header must be `https://www.myfitnesspal.com` with no trailing slash — a trailing slash causes the endpoint to return the full page instead of the AJAX fragment.
 4. **Cookie domain scoping** — `browser_cookie3` loads cookies for `.myfitnesspal.com`, but the library's session must also set them on `www.myfitnesspal.com` for Rails endpoints. This is handled in `Client.__init__`.
 
 ## Useful commands
