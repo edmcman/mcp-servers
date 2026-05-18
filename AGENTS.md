@@ -85,7 +85,7 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
 **Working write tools:**
 - `mfp_delete_diary_entry(meal, entry_index, date)` — deletes by meal + 0-based index. Calls `client.delete_diary_entry()`.
 - `mfp_log_saved_meal(meal_name, diary_meal, date)` — logs a saved/custom meal. Calls `client.log_saved_meal()`.
-- `mfp_add_food_to_diary(mfp_id, meal, date, quantity, unit)` — adds a food item to the diary. Calls `client.add_food_to_diary()`.
+- `mfp_add_food_to_diary(mfp_id, meal, date, quantity, weight_id)` — adds a food item to the diary. Pass `weight_id` from `mfp_search_food` results. Calls `client.add_food_to_diary()`.
 - `mfp_set_measurement(measurement, value)` — logs weight, body fat, etc.
 - `mfp_set_goals(calories, protein, carbohydrates, fat)` — updates nutrition goals
 - `mfp_create_food(...)` — creates a new food in the MFP database
@@ -106,7 +106,9 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
 - The library method `add_food_to_diary()` POSTs to `/food/add` with `food_entry[food_id]`, `food_entry[weight_id]`, `food_entry[meal_id]`, `food_entry[quantity]`, `food_entry[date]`, `ajax=true`.
 - Requires `Authorization: Bearer {access_token}`, `X-CSRF-Token` (from meta tag on `/food/search`), `mfp-client-id`, `mfp-user-id` headers.
 - Returns 204 on success (no body).
-- Both old-format (small ints) and new-format (large ints) food IDs work.
+- **CRITICAL — ID formats**: `/food/add` only works with old-format (~10-digit) food and weight IDs. New-format (15-digit) IDs return 204 but silently do nothing.
+- **ID sources**: `mfp_search_food` HTML scrape returns `data-original-id` (old-format) as `mfp_id` and `data-weight-ids` (old-format) as `weight_ids`. Always use these — do NOT use the `data-external-id` or IDs from the v2 (`api.myfitnesspal.com`) API.
+- **v2 API is mobile-only**: `api.myfitnesspal.com/v2/foods/{id}` only accepts new-format IDs and returns new-format serving size IDs — these cannot be used with `/food/add`.
 
 **Setting water (`mfp_set_water`):**
 - The library method `set_water()` POSTs to `/food/water` with `milliliters` and `date` params.
@@ -124,6 +126,7 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
 2. **Rails endpoints require CSRF tokens** from `<meta name="csrf-token">`. DELETE requests must include `X-CSRF-Token` header; without it they redirect to login.
 3. **Saved-meal pagination** (`/food/load_meals`) requires visiting `/food/add_to_diary?meal={i}&date={date}` first to establish server-side pagination state. Pagination requires incrementing both `base_index` and `page` together (not just `base_index`). The `Origin` header must be `https://www.myfitnesspal.com` with no trailing slash — a trailing slash causes the endpoint to return the full page instead of the AJAX fragment.
 4. **Cookie domain scoping** — `browser_cookie3` loads cookies for `.myfitnesspal.com`, but the library's session must also set them on `www.myfitnesspal.com` for Rails endpoints. This is handled in `Client.__init__`.
+5. **MFP has two parallel food ID systems**: old-format (~10-digit, e.g. `2744666713`) used by the Rails website, and new-format (~15-digit, e.g. `133055560789037`) used by the mobile v2 API. The HTML search page exposes both via `data-original-id` (old) and `data-external-id` (new). Always use old-format for write operations.
 
 ## Useful commands
 
