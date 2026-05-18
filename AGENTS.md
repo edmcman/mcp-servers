@@ -116,6 +116,16 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
 - Returns 200 with `{"item": {"date": "...", "milliliters": ...}}` on success.
 - The MCP tool accepts `cups` and converts to ml (1 cup = 236.588 ml).
 
+**Listing recent/frequent/my foods (added 2026-05-18):**
+- Three new read tools: `mfp_get_recent_foods`, `mfp_get_frequent_foods`, `mfp_get_my_foods`.
+- All backed by `client._load_food_tab(endpoint_path, meal_index)` — a shared helper extracted from `load_meals`.
+- Endpoints: `POST /food/load_recent`, `POST /food/load_most_used` (frequent), `POST /food/load_my_foods`.
+- All use identical request shape: `meal`, `base_index`, `page` form params + `X-CSRF-Token` + `X-Requested-With: XMLHttpRequest`. CSRF is primed by GETting `/food/add_to_diary?meal={meal_index}` first.
+- HTML response: `//tr[contains(@class,"favorite")]` rows — same structure across all tabs.
+- **Frequent tab naming quirk**: The MFP "Frequent" UI tab maps to `load_most_used` on the server, not `load_frequent`. The tab's JavaScript does `if (categoryName === 'frequent') { categoryName = 'most_used'; }`.
+- **Frequent foods are pre-embedded**: Page 1 of frequent foods is inline in the initial `GET /user/{username}/diary/add` HTML (JS sets `loaded['frequent1'] = true` at init). Subsequent pages use `POST /food/load_most_used`. Our `_load_food_tab` implementation always POSTs for page 1 as well, which returns the same data — this is intentional and correct.
+- Returns `list[dict]` with keys: `food_id`, `weight_id`, `name`, `index`. IDs are old-format (~10-digit) and can be passed directly to `mfp_add_food_to_diary`.
+
 **Known broken endpoints (do not use):**
 - None currently known — all diary write tools are functional.
 
@@ -124,7 +134,7 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
    - NextAuth: `__Secure-next-auth.session-token` (used by most read APIs and JSON endpoints)
    - Rails legacy: `_mfp_session`, `remember_me` (required by `/food/remove`, `/food/add_favorites`, `/food/load_meals`)
 2. **Rails endpoints require CSRF tokens** from `<meta name="csrf-token">`. DELETE requests must include `X-CSRF-Token` header; without it they redirect to login.
-3. **Saved-meal pagination** (`/food/load_meals`) requires visiting `/food/add_to_diary?meal={i}&date={date}` first to establish server-side pagination state. Pagination requires incrementing both `base_index` and `page` together (not just `base_index`). The `Origin` header must be `https://www.myfitnesspal.com` with no trailing slash — a trailing slash causes the endpoint to return the full page instead of the AJAX fragment.
+3. **Food-tab pagination** (`/food/load_meals`, `/food/load_recent`, `/food/load_most_used`, `/food/load_my_foods`) requires visiting `/food/add_to_diary?meal={i}&date={date}` first to establish server-side state and extract the CSRF token. Pagination requires incrementing both `base_index` and `page` together (not just `base_index`). The `Origin` header must be `https://www.myfitnesspal.com` with no trailing slash — a trailing slash causes the endpoint to return the full page instead of the AJAX fragment.
 4. **Cookie domain scoping** — `browser_cookie3` loads cookies for `.myfitnesspal.com`, but the library's session must also set them on `www.myfitnesspal.com` for Rails endpoints. This is handled in `Client.__init__`.
 5. **MFP has two parallel food ID systems**: old-format (~10-digit, e.g. `2744666713`) used by the Rails website, and new-format (~15-digit, e.g. `133055560789037`) used by the mobile v2 API. The HTML search page exposes both via `data-original-id` (old) and `data-external-id` (new). `mfp_search_food` returns both as `mfp_id` (old) and `external_id` (new). Use `mfp_id` for write operations (`mfp_add_food_to_diary`); use `external_id` for `mfp_get_food_details`.
 
