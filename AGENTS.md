@@ -126,7 +126,7 @@ The MCP server (`mfp-mcp/src/mfp_mcp/server.py`) is a thin wrapper over `python-
 2. **Rails endpoints require CSRF tokens** from `<meta name="csrf-token">`. DELETE requests must include `X-CSRF-Token` header; without it they redirect to login.
 3. **Saved-meal pagination** (`/food/load_meals`) requires visiting `/food/add_to_diary?meal={i}&date={date}` first to establish server-side pagination state. Pagination requires incrementing both `base_index` and `page` together (not just `base_index`). The `Origin` header must be `https://www.myfitnesspal.com` with no trailing slash — a trailing slash causes the endpoint to return the full page instead of the AJAX fragment.
 4. **Cookie domain scoping** — `browser_cookie3` loads cookies for `.myfitnesspal.com`, but the library's session must also set them on `www.myfitnesspal.com` for Rails endpoints. This is handled in `Client.__init__`.
-5. **MFP has two parallel food ID systems**: old-format (~10-digit, e.g. `2744666713`) used by the Rails website, and new-format (~15-digit, e.g. `133055560789037`) used by the mobile v2 API. The HTML search page exposes both via `data-original-id` (old) and `data-external-id` (new). Always use old-format for write operations.
+5. **MFP has two parallel food ID systems**: old-format (~10-digit, e.g. `2744666713`) used by the Rails website, and new-format (~15-digit, e.g. `133055560789037`) used by the mobile v2 API. The HTML search page exposes both via `data-original-id` (old) and `data-external-id` (new). `mfp_search_food` returns both as `mfp_id` (old) and `external_id` (new). Use `mfp_id` for write operations (`mfp_add_food_to_diary`); use `external_id` for `mfp_get_food_details`.
 
 ## Useful commands
 
