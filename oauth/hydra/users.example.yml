@@ -1,4 +1,4 @@
 users:
-  - username: ed
+  - username: user
     password: change-me-or-bcrypt-hash
     email: you@example.com

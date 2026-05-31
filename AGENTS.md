@@ -80,7 +80,6 @@ No credentials in the URL — OAuth 2.1 handles authentication. The transport is
 |---|---|
 | `NGROK_AUTHTOKEN` | ngrok auth token |
 | `NGROK_DOMAIN` | Static ngrok domain |
-| `OAUTH_PASSWORD` | Password for Hydra login UI |
 | `HYDRA_DSN` | Hydra database DSN, normally `sqlite:///data/hydra.db?mode=rwc&_fk=true` |
 | `HYDRA_SYSTEM_SECRET` | Hydra system secret, 32+ random characters |
 | `MFP_USERNAME` | MyFitnessPal email |

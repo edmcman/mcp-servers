@@ -53,15 +53,17 @@ Edit `.env`:
 | `MFP_PASSWORD` | MyFitnessPal password |
 | `NGROK_AUTHTOKEN` | Token from the ngrok dashboard |
 | `NGROK_DOMAIN` | Your static domain, e.g. `your-name.ngrok-free.app` |
-| `OAUTH_PASSWORD` | Password for the OAuth login UI user `ed` |
 | `HYDRA_DSN` | Hydra database DSN, normally `sqlite:///data/hydra.db?mode=rwc&_fk=true` |
 | `HYDRA_SYSTEM_SECRET` | 32+ character Hydra system secret |
 
-Users are configured in `oauth/hydra/users.yml`. Passwords can be plaintext or bcrypt hashes; bcrypt is preferred.
+Users are configured in `oauth/hydra/users.yml`. The example username is `user`; change it there if needed. Passwords can be plaintext or bcrypt hashes; bcrypt is preferred.
 
 ```bash
 cp oauth/hydra/users.example.yml oauth/hydra/users.yml
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'YOUR_PASSWORD', bcrypt.gensalt()).decode())"
 ```
+
+Put the generated hash in the user's `password` field.
 
 ### 3. Build and run
 
@@ -86,7 +88,7 @@ Use the MCP endpoint URL:
 https://<your-domain>/mfp/mcp
 ```
 
-Clients that support remote MCP OAuth, such as ChatGPT connectors and Claude.ai integrations, should discover OAuth metadata automatically, register via DCR, then redirect to the login UI. The configured username is `ed`; the password is `OAUTH_PASSWORD` from `.env`.
+Clients that support remote MCP OAuth, such as ChatGPT connectors and Claude.ai integrations, should discover OAuth metadata automatically, register via DCR, then redirect to the login UI. Use the username and password configured in `oauth/hydra/users.yml`.
 
 Hydra remembers successful browser logins for 24 hours, so adding a second client in the same browser may not prompt for the password again.
 
