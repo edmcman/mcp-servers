@@ -1,2 +1,5 @@
 .env
+hydra-data/
 mfp-cookies/
+oauth/casdoor/
+oauth/hydra/users.yml

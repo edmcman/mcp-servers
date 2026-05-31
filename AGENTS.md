@@ -3,13 +3,25 @@
 ## Architecture
 
 ```
-ngrok (static domain)
+ngrok (static domain, no auth)
   └─► nginx :80
-        └─► <server-name>-mcp:<port>   (supergateway, streamableHttp)
-              └─► python/node MCP server (stdio)
+        ├─► oauth-proxy :8080 (token validation + RS metadata + Hydra login/consent UI)
+        │     └─► <server-name>-mcp:<port> (supergateway, streamableHttp)
+        │           └─► python/node MCP server (stdio)
+        └─► hydra :4444/:4445 (OAuth 2.1 Authorization Server + DCR + JWKS + tokens)
 ```
 
-nginx does path-based routing so multiple MCP servers share one ngrok domain.
+nginx routes OAuth protocol endpoints to Hydra, login/consent and MCP endpoints through oauth-proxy. The proxy validates JWT Bearer tokens (JWKS) before forwarding to supergateway.
+
+## OAuth 2.1 Setup (Hydra)
+
+- **Hydra** (`oryd/hydra:v2.3.0`) is the Authorization Server with PKCE, native DCR, AS/OIDC metadata, JWKS, and tokens.
+- **oauth-proxy** (`oauth/oauth-proxy/`) is the Resource Server and login provider: validates JWTs, serves `/.well-known/oauth-protected-resource`, and handles Hydra login/consent callbacks.
+- Users are defined in `oauth/hydra/users.yml`; passwords can be plaintext or bcrypt hashes. Use `oauth/hydra/users.example.yml` as the template, and do not commit the real `users.yml`.
+- DCR is exposed at `/oauth2/register` for dynamic client registration (ChatGPT uses this).
+- SQLite storage persists in `./hydra-data/hydra.db`.
+- Hydra must issue JWT access tokens (`strategies.access_token: jwt`) so oauth-proxy can validate MCP Bearer tokens locally via JWKS.
+- Password change: generate a new bcrypt hash with `python3 -c "import bcrypt; print(bcrypt.hashpw(b'PASSWORD', bcrypt.gensalt()).decode())"` and update `oauth/hydra/users.yml`, then rebuild/restart `oauth-proxy`.
 
 ## Adding a new MCP server
 
@@ -23,11 +35,19 @@ nginx does path-based routing so multiple MCP servers share one ngrok domain.
 ```
 Pick an unused internal port (8001, 8002, …) for supergateway.
 
-**2. Add a location block in `nginx/nginx.conf`:**
+**2. Add the upstream to `oauth/oauth-proxy/app/main.py`:**
+```python
+UPSTREAMS = {
+    "/mfp/": os.getenv("MFP_UPSTREAM_URL", "http://mfp-mcp:8000"),
+    "/newname/": os.getenv("NEWNAME_UPSTREAM_URL", "http://my-new-mcp:8001"),
+}
+```
+And add a route handler (copy the `proxy_mfp` pattern).
+
+**3. Add a location block in `nginx/nginx.conf`:**
 ```nginx
 location /newname/ {
-  rewrite ^/newname/(.*) /$1 break;
-  proxy_pass http://my-new-mcp:8001;
+  proxy_pass http://oauth-proxy:8080;
 
   proxy_buffering           off;
   proxy_cache               off;
@@ -38,9 +58,9 @@ location /newname/ {
   add_header                X-Accel-Buffering no;
 }
 ```
-Add `my-new-mcp` to nginx's `depends_on` in `docker-compose.yml`.
+Add `my-new-mcp` to nginx's and oauth-proxy's `depends_on` in `docker-compose.yml`.
 
-**3. Apply:**
+**4. Apply:**
 ```bash
 docker compose up -d --build
 ```
@@ -49,10 +69,10 @@ docker compose up -d --build
 
 Each server is reachable at:
 ```
-https://<NGROK_BASIC_AUTH>@<NGROK_DOMAIN>/<name>/mcp
+https://<NGROK_DOMAIN>/<name>/mcp
 ```
 
-The transport is `streamableHttp` (POST `/mcp`), not SSE.
+No credentials in the URL — OAuth 2.1 handles authentication. The transport is `streamableHttp` (POST `/mcp`), not SSE.
 
 ## Environment variables (`.env`)
 
@@ -60,21 +80,23 @@ The transport is `streamableHttp` (POST `/mcp`), not SSE.
 |---|---|
 | `NGROK_AUTHTOKEN` | ngrok auth token |
 | `NGROK_DOMAIN` | Static ngrok domain |
-| `NGROK_BASIC_AUTH` | `user:password` protecting the public endpoint |
+| `OAUTH_PASSWORD` | Password for Hydra login UI |
+| `HYDRA_DSN` | Hydra database DSN, normally `sqlite:///data/hydra.db?mode=rwc&_fk=true` |
+| `HYDRA_SYSTEM_SECRET` | Hydra system secret, 32+ random characters |
 | `MFP_USERNAME` | MyFitnessPal email |
 | `MFP_PASSWORD` | MyFitnessPal password |
 
 ## Testing a server
 
+Unauthenticated requests return 401:
 ```bash
 source .env
-curl -s -X POST "https://${NGROK_BASIC_AUTH}@${NGROK_DOMAIN}/<name>/mcp" \
+curl -s -X POST "https://${NGROK_DOMAIN}/mfp/mcp" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 ```
 
-A valid response contains `"serverInfo"` with the server name and version.
+Full OAuth flow requires a browser or programmatic client (PKCE + authorization code exchange).
 
 ## MyFitnessPal MCP Implementation Notes
 

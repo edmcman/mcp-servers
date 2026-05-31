@@ -9,17 +9,59 @@ services:
       - ./mfp-cookies:/home/mcp/.mfp_mcp
     restart: unless-stopped
 
+  hydra-migrate:
+    image: oryd/hydra:v2.3.0
+    command: migrate sql --yes --read-from-env
+    environment:
+      - DSN=${HYDRA_DSN}
+    volumes:
+      - ./hydra-data:/data
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v2.3.0
+    command: serve all --config /etc/config/hydra.yml
+    environment:
+      - DSN=${HYDRA_DSN}
+      - SECRETS_SYSTEM=${HYDRA_SYSTEM_SECRET}
+      - URLS_SELF_ISSUER=https://${NGROK_DOMAIN}
+      - URLS_LOGIN=https://${NGROK_DOMAIN}/auth/login
+      - URLS_CONSENT=https://${NGROK_DOMAIN}/auth/consent
+    volumes:
+      - ./oauth/hydra/hydra.yml:/etc/config/hydra.yml:ro
+      - ./hydra-data:/data
+    depends_on:
+      - hydra-migrate
+    restart: unless-stopped
+
+  oauth-proxy:
+    build: ./oauth/oauth-proxy
+    environment:
+      - NGROK_DOMAIN=${NGROK_DOMAIN}
+      - HYDRA_ADMIN_URL=http://hydra:4445
+      - HYDRA_PUBLIC_URL=http://hydra:4444
+      - MFP_UPSTREAM_URL=http://mfp-mcp:8000
+      - USERS_FILE=/config/users.yml
+    volumes:
+      - ./oauth/hydra/users.yml:/config/users.yml:ro
+    depends_on:
+      - mfp-mcp
+      - hydra
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - mfp-mcp
+      - oauth-proxy
+      - hydra
     restart: unless-stopped
 
   ngrok:
     image: ngrok/ngrok:latest
-    command: http nginx:80 --url=${NGROK_DOMAIN} --basic-auth=${NGROK_BASIC_AUTH}
+    command: http nginx:80 --url=${NGROK_DOMAIN}
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     depends_on:

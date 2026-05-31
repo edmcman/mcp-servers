@@ -1,0 +1,41 @@
+serve:
+  public:
+    port: 4444
+  admin:
+    port: 4445
+
+oidc:
+  dynamic_client_registration:
+    enabled: true
+    default_scope:
+      - openid
+      - email
+      - profile
+      - offline_access
+  subject_identifiers:
+    supported_types:
+      - public
+
+strategies:
+  access_token: jwt
+
+webfinger:
+  jwks:
+    broadcast_keys:
+      - hydra.openid.id-token
+      - hydra.jwt.access-token
+  oidc_discovery:
+    client_registration_url: /oauth2/register
+    supported_claims:
+      - sub
+      - email
+      - name
+    supported_scope:
+      - openid
+      - email
+      - profile
+      - offline_access
+
+log:
+  level: info
+  format: text
