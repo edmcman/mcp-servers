@@ -208,6 +208,7 @@ async def proxy_mfp(request: Request, path: str):
         k: v for k, v in request.headers.items()
         if k.lower() not in ("host", "authorization", "content-length", "transfer-encoding", "connection")
     }
+    forward_headers["accept"] = "application/json"
 
     async with httpx.AsyncClient(timeout=3600.0) as client:
         resp = await client.request(
