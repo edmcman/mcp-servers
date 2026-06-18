@@ -84,6 +84,7 @@ No credentials in the URL — OAuth 2.1 handles authentication. The transport is
 | `HYDRA_SYSTEM_SECRET` | Hydra system secret, 32+ random characters |
 | `MFP_USERNAME` | MyFitnessPal email |
 | `MFP_PASSWORD` | MyFitnessPal password |
+| `MFP_SESSION_COOKIE` | Browser-obtained `__Secure-next-auth.session-token` cookie value. Required: MFP gates credential login behind reCAPTCHA, so `MFP_USERNAME`/`MFP_PASSWORD` alone fail with `RecaptchaFailed`. To get it: log into myfitnesspal.com in a browser → DevTools → Application → Cookies → `www.myfitnesspal.com` → copy `__Secure-next-auth.session-token`. Lasts ~30 days. |
 
 ## Testing a server
 
@@ -98,6 +99,26 @@ curl -s -X POST "https://${NGROK_DOMAIN}/mfp/mcp" \
 Full OAuth flow requires a browser or programmatic client (PKCE + authorization code exchange).
 
 ## MyFitnessPal MCP Implementation Notes
+
+### Authentication (reCAPTCHA block, 2026-06-18)
+
+MFP gates credential login behind reCAPTCHA. The NextAuth credentials flow
+(`POST /api/auth/callback/credentials` with a `csrfToken` from
+`/api/auth/csrf`) returns `{"url":".../api/auth/error?error=RecaptchaFailed"}`
+for headless clients, so `MFP_USERNAME`/`MFP_PASSWORD` no longer work
+unattended.
+
+`_build_mfp_client` (server.py) auth priority:
+1. `MFP_SESSION_COOKIE` env var → builds a cookiejar with that
+   `__Secure-next-auth.session-token` value (the reliable path).
+2. Stored cookies (`~/.mfp_mcp/cookies.json`, host `./mfp-cookies/`).
+3. Credentials (NextAuth flow; fails with `RecaptchaFailed`).
+4. Browser cookies (`browser_cookie3`).
+
+`authenticate_with_credentials` uses the NextAuth flow and detects the
+`/api/auth/error` redirect, raising a clear error instead of saving junk
+cookies. The previous Rails `/account/login` POST + cookie-name heuristic
+falsely reported success and persisted unauthenticated cookies.
 
 ### Diary Write Operations (Refactored 2026-05-17)
 
